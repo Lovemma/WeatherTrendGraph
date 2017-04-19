@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="WeatherTrendGraph">
+        <attr name="circle_radius" format="dimension"/><!--坐标点半径-->
+        <attr name="circle_color" format="color"/><!--坐标点颜色-->
+        <attr name="line_color" format="color"/><!--折线颜色-->
+        <attr name="line_width" format="dimension"/><!--折线宽度-->
+        <attr name="axes_color" format="color"/> <!--坐标轴颜色-->
+        <attr name="axes_width" format="dimension"/><!--坐标轴宽度-->
+        <attr name="shadow_color" format="color"/> <!--坐标轴颜色-->
+        <attr name="tmp_text_size" format="dimension"/>
+    </declare-styleable>
+</resources>
