@@ -2,6 +2,8 @@ package xyz.lovemma.weathertrendgraph;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -26,7 +28,6 @@ public class WeatherTrendGraph extends View {
     private float yInterval;  //  y轴坐标间隔
     private float xInterval;  //  x轴坐标间隔
 
-    private int[] shadeColors; //  渐变阴影颜色
 
     private int mLineColor;  //  折线颜色
     private float mLineWidth; //  折线宽度
@@ -37,12 +38,12 @@ public class WeatherTrendGraph extends View {
     private int mShaderColor;  //  坐标点颜色
     private float mTmpTextSize;  // 文字大小
 
-    private Paint mLinePaint;
-    private Path mLinePath;
-    private Paint mAxesPaint;
-    private Paint mCirclePaint;
-    private Paint mPaintShader;
-    private Paint mTextPaint;
+    private Paint mLinePaint;   //折线画笔
+    private Path mLinePath;     //折线路径
+    private Paint mAxesPaint;   //分隔线画笔
+    private Paint mCirclePaint; //坐标点画笔
+    private Paint mPaintShader; //阴影画笔
+    private TextPaint mTextPaint;   //文字画笔
 
     private List<Weather> mWeathers;
 
@@ -66,20 +67,16 @@ public class WeatherTrendGraph extends View {
         mMargin = DensityUtils.dp2px(context, 20);
         mWeathers = new ArrayList<>();
 
-        shadeColors = new int[]{
-                Color.argb(100, 255, 86, 86), Color.argb(15, 255, 86, 86),
-                Color.argb(0, 255, 86, 86)};
-
         initPaint();
     }
 
     private void initStyle(Context context, AttributeSet attrs) {
         TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.WeatherTrendGraph);
         mLineColor = typedArray.getColor(R.styleable.WeatherTrendGraph_line_color, Color.BLACK);
-        mLineWidth = typedArray.getDimension(R.styleable.WeatherTrendGraph_line_width, 2);
+        mLineWidth = typedArray.getDimensionPixelSize(R.styleable.WeatherTrendGraph_line_width, 2);
         mAxesColor = typedArray.getColor(R.styleable.WeatherTrendGraph_axes_color, Color.BLACK);
-        mAxesWidth = typedArray.getDimension(R.styleable.WeatherTrendGraph_axes_width, 1);
-        mCircleRadius = typedArray.getDimension(R.styleable.WeatherTrendGraph_circle_radius, 12);
+        mAxesWidth = typedArray.getDimensionPixelSize(R.styleable.WeatherTrendGraph_axes_width, 1);
+        mCircleRadius = typedArray.getDimensionPixelSize(R.styleable.WeatherTrendGraph_circle_radius, 12);
         mCircleColor = typedArray.getColor(R.styleable.WeatherTrendGraph_circle_color, Color.GRAY);
         mShaderColor = typedArray.getColor(R.styleable.WeatherTrendGraph_shadow_color, Color.GRAY);
         mTmpTextSize = typedArray.getDimension(R.styleable.WeatherTrendGraph_tmp_text_size, 35);
@@ -116,7 +113,6 @@ public class WeatherTrendGraph extends View {
         if (changed) {
             mWidth = getWidth();
             mHeight = getHeight() - mMargin * 2 - DensityUtils.sp2px(getContext(), mTmpTextSize);
-
         }
     }
 
@@ -128,50 +124,82 @@ public class WeatherTrendGraph extends View {
         }
         max = getMaxTmp();
         min = getMinTmp();
+        //每个像素占的比率
         float ratio = (float) mHeight / (max - min);
         xInterval = (float) mWidth / (mWeathers.size() - 2);
-        float startX, stopX, startY, stopY;
-        float sY;
+        float X, Y;
+        float Y1;
         String tmp;
+        //记录高温折线路径
         for (int i = 1; i < mWeathers.size() - 1; i++) {
             tmp = mWeathers.get(i).getHighTmp() + "°";
-            startX = (i - 1) * xInterval + xInterval / 2;
-            startY = (max - mWeathers.get(i).getHighTmp()) * ratio + mMargin + DensityUtils.sp2px(getContext(), mTmpTextSize);
+            X = (i - 1) * xInterval + xInterval / 2;
+            Y = (max - mWeathers.get(i).getHighTmp()) * ratio + mMargin + DensityUtils.sp2px(getContext(), mTmpTextSize);
             if (i == 1) {
-                sY = ((max - mWeathers.get(0).getHighTmp()) * ratio + mMargin + startY) / 2;
-                mLinePath.moveTo(0, sY);
+                Y1 = ((max - mWeathers.get(0).getHighTmp()) * ratio + mMargin + Y) / 2;
+                mLinePath.moveTo(0, Y1);
             }
-            mLinePath.lineTo(startX, startY);
+            mLinePath.lineTo(X, Y);
             if (i == mWeathers.size() - 2) {
-                sY = ((max - mWeathers.get(i + 1).getHighTmp()) * ratio + mMargin + startY) / 2;
-                mLinePath.lineTo(getWidth(), sY);
+                Y1 = ((max - mWeathers.get(i + 1).getHighTmp()) * ratio + mMargin + Y) / 2;
+                mLinePath.lineTo(getWidth(), Y1);
             }
-            canvas.drawCircle(startX, startY, mCircleRadius, mCirclePaint);
-            canvas.drawLine(startX + xInterval / 2, 0,
-                    startX + xInterval / 2, getHeight(),
+            //绘制每一个温度点
+            canvas.drawCircle(X, Y, mCircleRadius, mCirclePaint);
+            //绘制分隔线
+            canvas.drawLine(X + xInterval / 2, 0,
+                    X + xInterval / 2, getHeight(),
                     mAxesPaint);
-            canvas.drawText(tmp, startX - mTextPaint.measureText(tmp)/2, startY - 2 * mCircleRadius, mTextPaint);
-            canvas.drawText(mWeathers.get(i).getWeek(), startX - mTextPaint.measureText(mWeathers.get(i).getWeek())/2, DensityUtils.sp2px(getContext(), mTmpTextSize), mTextPaint);
-
+            //绘制温度
+            canvas.drawText(tmp, X - mTextPaint.measureText(tmp) / 2, Y - 2 * mCircleRadius, mTextPaint);
+            //绘制时间
+            canvas.drawText(mWeathers.get(i).getWeek(),
+                    X - mTextPaint.measureText(mWeathers.get(i).getWeek()) / 2,
+                    DensityUtils.sp2px(getContext(), mTmpTextSize),
+                    mTextPaint);
+            //绘制天气所对应的图片
+            Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.sunny);
+            switch (mWeathers.get(i).getCond()) {
+                case "晴":
+                    bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.sunny);
+                    break;
+                case "阴":
+                    bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.overcast);
+                    break;
+                case "雨":
+                    bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.rain);
+                    break;
+                case "多云":
+                    bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.cloudy);
+                    break;
+            }
+            canvas.drawBitmap(bitmap, X - bitmap.getWidth() / 2, 0, mCirclePaint);
+            if (!bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
         }
 
+        //记录低温折线路径
         for (int i = mWeathers.size() - 2; i > 0; i--) {
             tmp = mWeathers.get(i).getLowTmp() + "°";
-            startX = (i - 1) * xInterval + xInterval / 2;
-            startY = (max - mWeathers.get(i).getLowTmp()) * ratio + mMargin + DensityUtils.sp2px(getContext(), mTmpTextSize);
+            X = (i - 1) * xInterval + xInterval / 2;
+            Y = (max - mWeathers.get(i).getLowTmp()) * ratio + mMargin + DensityUtils.sp2px(getContext(), mTmpTextSize);
             if (i == mWeathers.size() - 2) {
-                sY = ((max - mWeathers.get(i + 1).getLowTmp()) * ratio + mMargin + startY) / 2;
-                mLinePath.lineTo(getWidth(), sY);
+                Y1 = ((max - mWeathers.get(i + 1).getLowTmp()) * ratio + mMargin + Y) / 2;
+                mLinePath.lineTo(getWidth(), Y1);
             }
-            mLinePath.lineTo(startX, startY);
+            mLinePath.lineTo(X, Y);
             if (i == 1) {
-                sY = ((max - mWeathers.get(0).getLowTmp()) * ratio + mMargin + startY) / 2;
-                mLinePath.lineTo(0, sY);
+                Y1 = ((max - mWeathers.get(0).getLowTmp()) * ratio + mMargin + Y) / 2;
+                mLinePath.lineTo(0, Y1);
                 mLinePath.lineTo(0, 0);
                 mLinePath.close();
             }
-            canvas.drawCircle(startX, startY, mCircleRadius, mCirclePaint);
-            canvas.drawText(tmp, startX - DensityUtils.dp2px(getContext(), tmp.length() * 2), startY + 4 * mCircleRadius, mTextPaint);
+            canvas.drawCircle(X, Y, mCircleRadius, mCirclePaint);
+            canvas.drawText(tmp,
+                    X - mTextPaint.measureText(tmp) / 2,
+                    Y + 4 * mCircleRadius,
+                    mTextPaint);
         }
 
         canvas.drawPath(mLinePath, mPaintShader);
